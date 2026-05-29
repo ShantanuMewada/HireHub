@@ -4,15 +4,15 @@ import mongoose from "mongoose";
 
 export const applyJob = async (req, res) => {
   try {
+
     const jobId = req.params.jobId;
 
     if (!mongoose.Types.ObjectId.isValid(jobId)) {
-  return res.status(400).json({
-    message: "Invalid Job ID",
-  });
-}
+      return res.status(400).json({
+        message: "Invalid Job ID",
+      });
+    }
 
-    // Check job exists
     const job = await Job.findById(jobId);
 
     if (!job) {
@@ -21,7 +21,6 @@ export const applyJob = async (req, res) => {
       });
     }
 
-    // Check duplicate application
     const alreadyApplied = await Application.findOne({
       job: jobId,
       candidate: req.user.id,
@@ -33,7 +32,6 @@ export const applyJob = async (req, res) => {
       });
     }
 
-    // Create application
     const application = await Application.create({
       job: jobId,
       candidate: req.user.id,
@@ -43,6 +41,7 @@ export const applyJob = async (req, res) => {
       message: "Applied successfully",
       application,
     });
+
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -50,25 +49,43 @@ export const applyJob = async (req, res) => {
   }
 };
 
-export const getJobApplications = async (req, res) =>{
+export const getJobApplications = async (req, res) => {
   try {
+
     const jobId = req.params.jobId;
-    
-    const application = await Application.find({
-      job:jobId,
+
+    const job = await Job.findById(jobId);
+
+    if (!job) {
+      return res.status(404).json({
+        message: "Job not found",
+      });
+    }
+
+    if (
+      req.user.role !== "admin" &&
+      job.recruiter.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        message: "Access denied",
+      });
+    }
+
+    const applications = await Application.find({
+      job: jobId,
     })
-    .populate("candidate","name email role skills")
-    .populate("job","title company");
+      .populate("candidate", "name email role skills")
+      .populate("job", "title company");
 
     res.status(200).json({
-      message:"Applications fetched successfully",
-      count: application.length, 
-      applications:application,
+      message: "Applications fetched successfully",
+      count: applications.length,
+      applications,
     });
 
   } catch (error) {
     res.status(500).json({
-      message:error.message 
-    })
+      message: error.message,
+    });
   }
-}
+};
